@@ -21,62 +21,29 @@ function mapAppointmentRow(row: AppointmentRow): Appointment {
   };
 }
 
-const clinicianExistsStatement = db.prepare(
-  `
-    SELECT id
-    FROM clinicians
-    WHERE id = ?
-    LIMIT 1
-  `
-);
-
-const patientExistsStatement = db.prepare(
-  `
-    SELECT id
-    FROM patients
-    WHERE id = ?
-    LIMIT 1
-  `
-);
-
-const selectOverlappingAppointmentStatement = db.prepare(
-  `
-    SELECT 1
-    FROM appointments
-    WHERE (clinician_id = ? OR patient_id = ?)
-      AND ? < end_time
-      AND ? > start_time
-    LIMIT 1
-  `
-);
-
-const insertAppointmentStatement = db.prepare(
-  `
-    INSERT INTO appointments (
-      clinician_id,
-      patient_id,
-      start_time,
-      end_time
-    )
-    VALUES (?, ?, ?, ?)
-  `
-);
-
-const selectAppointmentByIdStatement = db.prepare(
-  `
-    SELECT id, clinician_id, patient_id, start_time, end_time
-    FROM appointments
-    WHERE id = ?
-  `
-);
-
 export const sqliteRepository: IRepository = {
   clinicianExists(id: number): boolean {
-    return recordExists(clinicianExistsStatement, id);
+    return recordExists(
+      `
+        SELECT id
+        FROM clinicians
+        WHERE id = ?
+        LIMIT 1
+      `,
+      id
+    );
   },
 
   patientExists(id: number): boolean {
-    return recordExists(patientExistsStatement, id);
+    return recordExists(
+      `
+        SELECT id
+        FROM patients
+        WHERE id = ?
+        LIMIT 1
+      `,
+      id
+    );
   },
 
   createAppointmentSafely(params: {
@@ -86,25 +53,46 @@ export const sqliteRepository: IRepository = {
     endTime: string;
   }): Appointment {
     const createInTransaction = db.transaction(() => {
-      const overlapping = selectOverlappingAppointmentStatement.get(
-        params.clinicianId,
-        params.patientId,
-        params.startTime,
-        params.endTime
-      );
+      const overlapping = db
+        .prepare(
+          `
+            SELECT 1
+            FROM appointments
+            WHERE (clinician_id = ? OR patient_id = ?)
+              AND ? < end_time
+              AND ? > start_time
+            LIMIT 1
+          `
+        )
+        .get(params.clinicianId, params.patientId, params.startTime, params.endTime);
 
       if (overlapping) {
         throw new AppointmentOverlapError();
       }
 
-      const result = insertAppointmentStatement.run(
-        params.clinicianId,
-        params.patientId,
-        params.startTime,
-        params.endTime
-      );
+      const result = db
+        .prepare(
+          `
+            INSERT INTO appointments (
+              clinician_id,
+              patient_id,
+              start_time,
+              end_time
+            )
+            VALUES (?, ?, ?, ?)
+          `
+        )
+        .run(params.clinicianId, params.patientId, params.startTime, params.endTime);
 
-      const row = selectAppointmentByIdStatement.get(result.lastInsertRowid) as AppointmentRow;
+      const row = db
+        .prepare(
+          `
+            SELECT id, clinician_id, patient_id, start_time, end_time
+            FROM appointments
+            WHERE id = ?
+          `
+        )
+        .get(result.lastInsertRowid) as AppointmentRow;
 
       return mapAppointmentRow(row);
     });
@@ -127,8 +115,8 @@ export const sqliteRepository: IRepository = {
   },
 };
 
-function recordExists(statement: { get: (id: number) => unknown }, id: number): boolean {
-  return statement.get(id) !== undefined;
+function recordExists(sql: string, id: number): boolean {
+  return db.prepare(sql).get(id) !== undefined;
 }
 
 function findAppointmentsWithFilters(options?: {
