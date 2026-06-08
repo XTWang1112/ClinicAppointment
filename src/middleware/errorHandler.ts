@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 
 import { AppError } from "./errors";
 
@@ -8,9 +8,15 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+    const payload: Record<string, unknown> = {
       error: err.message,
-    });
+    };
+
+    if (err.details !== undefined) {
+      payload.details = err.details;
+    }
+
+    res.status(err.statusCode).json(payload);
     return;
   }
 

@@ -1,15 +1,16 @@
 export class AppError extends Error {
   constructor(
     public statusCode: number,
-    message: string
+    message: string,
+    public details?: unknown
   ) {
     super(message);
   }
 }
 
 export class RequestValidationError extends AppError {
-  constructor() {
-    super(400, "Validation failed");
+  constructor(details?: unknown) {
+    super(400, "Validation failed", details);
     this.name = "RequestValidationError";
   }
 }

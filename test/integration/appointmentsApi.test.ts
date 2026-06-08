@@ -5,7 +5,7 @@ import { closeTestDatabase, startTestDatabase, resetTestDatabase } from "../setu
 
 describe("Appointments API integration tests", () => {
   beforeAll(() => {
-    console.log("🚀 Starting integration tests...");
+    console.log("Starting integration tests...");
     startTestDatabase();
   });
 
@@ -45,6 +45,14 @@ describe("Appointments API integration tests", () => {
       });
 
       expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: "Validation failed",
+        details: {
+          fieldErrors: {
+            start: ["Must be a valid datetime"],
+          },
+        },
+      });
     });
 
     it("returns 400 when start is after end", async () => {

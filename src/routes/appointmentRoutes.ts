@@ -10,8 +10,8 @@ import {
   appointmentQuerySchema,
   adminAppointmentsQuerySchema,
 } from "../validation/appointmentSchemas";
-import { validateRequest } from "../middlerware/validateRequest";
-import { simulateAuth, requireRole } from "../middlerware/auth";
+import { validateRequest } from "../middleware/validateRequest";
+import { simulateAuth, requireRole } from "../middleware/auth";
 
 export const appointmentRouter = Router();
 

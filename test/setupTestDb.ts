@@ -1,17 +1,17 @@
 import { db } from "../src/db/database";
 import { initializeDatabase } from "../src/db/initializeDb";
 
-export function startTestDatabase() {
+export function startTestDatabase(): void {
   initializeDatabase();
 }
 
-export function resetTestDatabase() {
+export function resetTestDatabase(): void {
   db.exec(`
     DELETE FROM appointments;
   `);
 }
 
-export function closeTestDatabase() {
+export function closeTestDatabase(): void {
   db.exec(`
     DELETE FROM appointments;
     DELETE FROM clinicians;
@@ -22,5 +22,5 @@ export function closeTestDatabase() {
     WHERE name IN ('appointments', 'clinicians', 'patients', 'migrations');
   `);
   db.close();
-  console.log(`✅ Test database closed`);
+  console.log("Test database closed");
 }

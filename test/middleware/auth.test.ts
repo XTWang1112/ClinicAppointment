@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { simulateAuth, requireRole } from "../../src/middlerware/auth";
-import { ForbiddenError, UnAuthenticatedError } from "../../src/middlerware/errors";
+import { simulateAuth, requireRole } from "../../src/middleware/auth";
+import { ForbiddenError, UnAuthenticatedError } from "../../src/middleware/errors";
 
 function createMockRequest(role?: string): Request {
   return {

@@ -1,6 +1,6 @@
 import express from "express";
 import { appointmentRouter } from "./src/routes/appointmentRoutes";
-import { errorHandler, notFoundHandler } from "./src/middlerware/errorHandler";
+import { errorHandler, notFoundHandler } from "./src/middleware/errorHandler";
 import { setupSwagger } from "./src/swagger";
 
 export const app = express();

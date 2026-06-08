@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { errorHandler, notFoundHandler } from "../../src/middlerware/errorHandler";
-import { AppError } from "../../src/middlerware/errors";
+import { errorHandler, notFoundHandler } from "../../src/middleware/errorHandler";
+import { AppError, RequestValidationError } from "../../src/middleware/errors";
 
 function createMockResponse(): Response {
   return {
@@ -44,6 +44,45 @@ describe("errorHandler", () => {
       error: "Internal server error",
     });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("includes details when AppError provides them", () => {
+    const error = new RequestValidationError({
+      fieldErrors: {
+        start: ["Must be a valid datetime"],
+      },
+    });
+
+    errorHandler(error, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Validation failed",
+      details: {
+        fieldErrors: {
+          start: ["Must be a valid datetime"],
+        },
+      },
+    });
+  });
+
+  it("omits empty error groups from validation details", () => {
+    const error = new RequestValidationError({
+      fieldErrors: {
+        clinicianId: ["Invalid input: expected number, received string"],
+      },
+    });
+
+    errorHandler(error, req, res, next);
+
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Validation failed",
+      details: {
+        fieldErrors: {
+          clinicianId: ["Invalid input: expected number, received string"],
+        },
+      },
+    });
   });
 });
 

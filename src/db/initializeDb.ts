@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "./database";
 
-export function initializeDatabase() {
+export function initializeDatabase(): void {
   const schemaPath = path.join(process.cwd(), "db", "schema.sql");
   const schema = fs.readFileSync(schemaPath, "utf-8");
 
@@ -10,7 +10,7 @@ export function initializeDatabase() {
   runMigrations();
 }
 
-function runMigrations() {
+function runMigrations(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,10 +62,9 @@ function runMigrations() {
 
     try {
       runMigrationTransaction();
-
-      console.log(`✅ Ran migration: ${filename}`);
+      console.log(`Ran migration: ${filename}`);
     } catch (error) {
-      console.error(`❌ Failed to run migration: ${filename}`);
+      console.error(`Failed to run migration: ${filename}`);
 
       if (error instanceof Error) {
         console.error(error.message);
