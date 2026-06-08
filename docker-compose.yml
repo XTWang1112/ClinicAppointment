@@ -1,0 +1,14 @@
+services:
+  clinic-api:
+    build: .
+    container_name: clinic-appointment-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/clinic.db
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  clinic-data:
