@@ -133,6 +133,38 @@ describe("Appointments API integration tests", () => {
 
       expect(response.status).toBe(201);
     });
+
+    it("allows only one appointment when two overlapping requests are submitted concurrently", async () => {
+      const requestBodyPatient1 = {
+        clinicianId: 1,
+        patientId: 1,
+        start: "2099-06-10T09:00:00+10:00",
+        end: "2099-06-10T09:30:00+10:00",
+      };
+
+      const requestBodyPatient2 = {
+        clinicianId: 1,
+        patientId: 2,
+        start: "2099-06-10T09:00:00+10:00",
+        end: "2099-06-10T09:30:00+10:00",
+      };
+
+      const [response1, response2] = await Promise.all([
+        request(app).post("/appointments").set("x-user-role", "patient").send(requestBodyPatient1),
+        request(app).post("/appointments").set("x-user-role", "patient").send(requestBodyPatient2),
+      ]);
+
+      const statuses = [response1.status, response2.status].sort();
+
+      expect(statuses).toEqual([201, 409]);
+
+      const listResponse = await request(app)
+        .get("/appointments?from=2099-06-10T08:00:00%2B10:00&to=2099-06-10T10:00:00%2B10:00")
+        .set("x-user-role", "admin");
+
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toHaveLength(1);
+    });
   });
 
   describe("GET /clinicians/:id/appointments", () => {
