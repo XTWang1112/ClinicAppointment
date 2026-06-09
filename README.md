@@ -14,71 +14,8 @@ Simple clinic appointment booking API built with Node.js, Express, TypeScript, S
 
 ## Requirements
 
-- Node.js 24+ recommended
-- npm
-- Docker and Docker Compose, if you want to run the containerized version
-
-## Setup
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-## Run
-
-Start the development server with watch mode:
-
-```bash
-npm run dev
-```
-
-Build the TypeScript project:
-
-```bash
-npm run build
-```
-
-Start the compiled server:
-
-```bash
-npm start
-```
-
-The server listens on `http://localhost:3000`.
-
-## Test
-
-Run the test suite:
-
-```bash
-npm run test:run
-```
-
-Run tests in watch mode:
-
-```bash
-npm test
-```
-
-Run tests with coverage:
-
-```bash
-npm run test:coverage
-```
-
-Run formatting checks:
-
-```bash
-npm run format:check
-```
-
-Format the codebase:
-
-```bash
-npm run format
-```
+- Docker and Docker Compose
+- Node.js 24+ and npm, if you want to run the app locally without Docker
 
 ## Docker
 
@@ -94,6 +31,17 @@ To stop the container:
 
 ```bash
 docker compose down
+```
+
+The server listens on `http://localhost:3000`.
+
+## Local Development
+
+If you want to run the app without Docker:
+
+```bash
+npm install
+npm run dev
 ```
 
 ## API Overview
@@ -144,6 +92,76 @@ curl "http://localhost:3000/appointments?limit=10" \
   -H "x-user-role: admin"
 ```
 
+## Project Structure
+
+The request flow is:
+
+1. `server.ts` initializes the database and starts the HTTP server.
+2. `app.ts` configures Express middleware, Swagger, routes, and global error handling.
+3. `appointmentRoutes.ts` matches the route and runs auth and request validation middleware.
+4. `appointmentController.ts` reads validated data from `res.locals` and delegates to the service layer.
+5. `appointmentService.ts` applies business rules and transforms request datetimes to UTC ISO strings.
+6. `sqliteRepository.ts` runs SQLite queries and transactions through the shared `db` connection.
+
+```mermaid
+graph TD
+    A["server.ts"] --> B["initializeDatabase()"]
+    A --> C["app.ts"]
+    C --> D["express.json()"]
+    C --> E["setupSwagger(app)"]
+    C --> O["notFoundHandler"]
+    C --> P["errorHandler"]
+
+    subgraph R["Router"]
+        F["appointmentRouter"]
+    end
+
+    subgraph MW["Middleware"]
+        G["simulateAuth"]
+        H["requireRole(...)"]
+        I["validateRequest(...)"]
+        O
+        P
+    end
+
+    subgraph CTRL["Controller"]
+        J["appointmentController"]
+    end
+
+    subgraph SVC["Service"]
+        K["appointmentService"]
+    end
+
+    subgraph REPO["Repository"]
+        L["repository (IRepository)"]
+        M["sqliteRepository"]
+    end
+
+    subgraph DB["Database"]
+        N["better-sqlite3 db connection"]
+    end
+
+    C --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+    L --> M
+    M --> N
+
+    J -. "throws / next(error)" .-> P
+    K -. "domain errors" .-> P
+    I -. "validation errors" .-> P
+```
+
+Notes:
+
+- `app.ts` does not call the controller directly. The request goes through route-level middleware first.
+- `appointmentService.ts` talks to the repository abstraction, and the current implementation behind it is `sqliteRepository`.
+- `errorHandler` is the final step for validation, authorization, not-found, and application errors.
+
 ## Design Decisions / Tradeoffs
 
 ### Concurrency safety
@@ -181,6 +199,163 @@ Example:
 As a result, overlapping appointments cannot be created even when multiple requests are submitted concurrently.
 
 This approach provides application-level concurrency protection without requiring database-specific exclusion constraints, while remaining simple and reliable for a SQLite-based solution.
+
+## Test
+
+Run the test suite:
+
+```bash
+npm run test:run
+```
+
+Run tests in watch mode:
+
+```bash
+npm test
+```
+
+Run tests with coverage:
+
+```bash
+npm run test:coverage
+```
+
+Run formatting checks:
+
+```bash
+npm run format:check
+```
+
+Format the codebase:
+
+```bash
+npm run format
+```
+
+## Test Coverage
+
+The test suite is organized by file so each layer can be verified independently.
+
+### `test/integration/appointmentsApi.test.ts`
+
+- `POST /appointments`
+- `creates an appointment`
+- `returns 400 for invalid datetime`
+- `returns 400 when start is after end`
+- `returns 404 when clinician does not exist`
+- `returns 404 when patient does not exist`
+- `returns 409 when same clinician has overlapping appointment`
+- `returns 409 when same patient has overlapping appointment with different clinician`
+- `allows appointments that touch but do not overlap`
+- `allows only one appointment when two overlapping requests are submitted concurrently`
+- `GET /clinicians/:id/appointments`
+- `lists appointments for one clinician`
+- `supports from and to query params`
+- `returns 400 for invalid clinician id`
+- `returns 400 for invalid date range`
+- `returns 404 when clinician does not exist`
+- `GET /appointments`
+- `lists all upcoming appointments for admin`
+- `supports limit`
+- `supports from and to query params`
+- `returns 403 when non-admin tries to list all appointments`
+- `returns 401 when role header is missing`
+- `returns 400 for invalid limit`
+- `not found`
+- `returns 404 for unknown route`
+
+### `test/controllers/appointmentController.test.ts`
+
+- `createAppointmentHandler`
+- `returns 201 with created appointment`
+- `passes errors to next`
+- `listClinicianAppointmentsHandler`
+- `returns 200 with clinician appointments`
+- `passes errors to next`
+- `listAllAppointmentsHandler`
+- `returns 200 with all appointments`
+- `passes errors to next`
+
+### `test/db/sqliteRepository.test.ts`
+
+- `clinicianExists`
+- `returns true when clinician exists`
+- `returns false when clinician does not exist`
+- `patientExists`
+- `returns true when patient exists`
+- `returns false when patient does not exist`
+- `createAppointmentSafely`
+- `creates appointment when there is no overlap`
+- `throws AppointmentOverlapError when appointment overlaps`
+- `findAppointmentsByClinician`
+- `returns only matching clinician appointments within the range`
+- `findAppointments`
+- `returns appointments sorted by start time and respects limit`
+
+### `test/middleware/auth.test.ts`
+
+- `simulateAuth`
+- `sets user role and calls next when role is valid`
+- `throws UnAuthenticatedError when role header is missing`
+- `throws UnAuthenticatedError when role is invalid`
+- `requireRole`
+- `calls next when user role is allowed`
+- `calls next when user role is one of allowed roles`
+- `throws UnAuthenticatedError when user is missing`
+- `throws ForbiddenError when user role is not allowed`
+
+### `test/middleware/errorHandler.test.ts`
+
+- `returns AppError status code and message`
+- `returns 500 for unknown errors`
+- `includes details when AppError provides them`
+- `omits empty error groups from validation details`
+- `notFoundHandler`
+- `returns 404 with route information`
+
+### `test/validation/appointmentSchema.test.ts`
+
+- `createAppointmentSchema`
+- `accepts a valid appointment request`
+- `rejects invalid start datetime`
+- `rejects invalid end datetime`
+- `rejects when start is equal to end`
+- `rejects when start is after end`
+- `rejects when start is in the past`
+- `rejects non-integer clinicianId`
+- `rejects non-positive patientId`
+- `clinicianAppointmentsParamsSchema`
+- `coerces id from string to number`
+- `rejects invalid id`
+- `rejects non-positive id`
+- `appointmentQuerySchema`
+- `accepts empty query`
+- `accepts only from`
+- `accepts only to`
+- `rejects invalid from`
+- `rejects when from is after to`
+- `adminAppointmentsQuerySchema`
+- `accepts empty query`
+- `coerces limit from string to number`
+- `rejects invalid limit`
+- `rejects zero limit`
+- `rejects limit greater than 100`
+- `rejects when from is after to`
+- `does not add date range error when from is invalid`
+
+## Test Database Isolation
+
+Tests use a separate SQLite file so they do not write into the normal development database.
+
+- In [database.ts](C:\Users\tongw\Documents\Code\ClinicAppointment\src\db\database.ts), the database path switches based on environment:
+  - `data/test-clinic.db` when `NODE_ENV === "test"`
+  - `data/clinic.db` otherwise
+- The CI workflow sets `NODE_ENV=test`, so GitHub Actions also uses the test database.
+- In [setupTestDb.ts](C:\Users\tongw\Documents\Code\ClinicAppointment\test\setupTestDb.ts), `startTestDatabase()` initializes the schema and seed data before tests run.
+- `resetTestDatabase()` clears only the `appointments` table before each test so each case starts from a clean booking state.
+- `closeTestDatabase()` removes test data, resets SQLite sequences, and closes the shared connection after the suite finishes.
+
+This keeps the tests deterministic while protecting local development data from accidental modification.
 
 ## Swagger Docs
 
