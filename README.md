@@ -162,31 +162,118 @@ Notes:
 - `appointmentService.ts` talks to the repository abstraction, and the current implementation behind it is `sqliteRepository`.
 - `errorHandler` is the final step for validation, authorization, not-found, and application errors.
 
-## Design Decisions / Tradeoffs
+## Design Decisions & Tradeoffs
 
-### Concurrency safety
+### 1. **Database fields: `start_time` and `end_time` vs `start_time` and `duration`**
 
-Appointment creation wraps the overlap check and insert in a SQLite immediate transaction. That means two overlapping requests cannot both pass validation before either one is committed.
+Decision: Store `start_time` and `end_time` directly rather than storing `start_time` plus a duration.
 
-This keeps the implementation simple and reliable for SQLite without requiring database-specific exclusion constraints.
+Why:
 
-### Simulated role-based access
+- overlap checks and time-range queries are easier to express in SQL
+- the conflict rule can compare two concrete timestamps directly
+- the API can return exact start and end values without recomputing them
 
-Instead of a full authentication system, the project uses the `x-user-role` header to simulate patient, clinician, and admin access. This keeps the API easy to test and reason about while still exercising authorization behavior.
+Tradeoff:
 
-### Validation at the edge
+- `end_time` is derived data, so the application must keep `start_time < end_time` valid
+- this is enforced through request validation and a database `CHECK`
 
-Zod schemas validate request bodies, params, and query strings before handlers run. This reduces controller complexity and makes invalid input fail early with clear errors.
+### 2. **Primary key datatype: integer vs GUID**
 
-### SQLite as the storage layer
+Decision: Use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of GUIDs.
 
-SQLite is a practical choice for a small appointment service and makes local development, tests, and Docker usage straightforward. The tradeoff is that it is simpler than a larger production database setup, but it is a good fit for this project's scope.
+Why:
 
-## Concurrency and Race Condition Handling
+- integer primary keys are compact and fast in SQLite
+- they keep local seed data and tests simple to read and write
+- they match the current single-database scope of the project
 
-Appointment creation is concurrency-safe by wrapping the overlap check and insert in a SQLite immediate transaction.
+Tradeoff:
 
-This ensures the availability check and appointment creation happen atomically, preventing concurrent requests from both passing the overlap check before either appointment is committed.
+- integer IDs are easier to guess
+- they are less suitable than GUIDs for distributed systems or multi-database record merging
+
+### 3. **Index choice**
+
+Decision: Use the current indexes:
+
+- a composite index on `(clinician_id, start_time, end_time)`
+- a single-column index on `start_time`
+
+Why:
+
+- the composite index helps clinician-specific time-range queries
+- the `start_time` index helps broader upcoming-appointment listing
+- this matches the project’s current query patterns better than relying on table scans
+
+Tradeoff:
+
+- writes pay an index-maintenance cost
+- three separate single-column indexes would be more general in some cases, but less directly helpful for the common clinician-and-time query
+- no indexes would simplify writes slightly, but read performance would degrade as the table grows
+
+### 4. **Raw SQL instead of an ORM or query builder**
+
+Decision: Use raw SQL through `better-sqlite3` rather than an ORM or query builder.
+
+Why:
+
+- the queries are explicit and easy to map back to the schema
+- the repository stays small and predictable
+- transaction boundaries are easy to see, especially for overlap prevention
+
+Tradeoff:
+
+- raw SQL increases the chance of future mistakes if unsafe string interpolation is introduced later
+- the current code mitigates direct SQL injection for values by using parameter binding such as `?`
+- a stronger long-term guardrail would be to keep all user input parameterized, avoid dynamic SQL fragments for user-controlled identifiers, or introduce a query builder / stricter repository helpers as the codebase grows
+
+### 5. **Simulated authentication without user identity**
+
+Decision: Simulate authentication with a role header and no user identity.
+
+Why:
+
+- it keeps the project focused on scheduling logic and authorization flow
+- it makes local testing and API exploration simple
+- it avoids pulling full auth/session logic into a small exercise
+
+Tradeoff:
+
+- the API can enforce role-based access, but not record ownership
+- a patient can currently create an appointment for another patient by sending a different `patientId`
+- a stronger production design would attach both `userId` and `role` to the request context and verify ownership for non-admin users
+
+### 6. **`index.ts` as a repository selection layer**
+
+Decision: Keep `src/db/repositories/index.ts` as the repository selection layer.
+
+Why:
+
+- the service layer imports one stable module instead of importing `sqliteRepository` directly
+- it keeps business logic depending on the repository abstraction rather than one concrete backend
+- it leaves room to swap implementations later with minimal changes to the service layer
+
+Tradeoff:
+
+- this is an extra abstraction layer in a project that currently has only one repository implementation
+- the benefit becomes much clearer if the project later adds another backend or proper dependency injection
+
+### 7. **Concurrency and Race Condition Handling**
+
+Decision: Use a SQLite immediate transaction for overlap prevention.
+
+Why:
+
+- it keeps the overlap check and insert atomic
+- it prevents two concurrent requests from both passing validation and creating conflicting bookings
+- it provides a simple concurrency-control mechanism that fits SQLite well
+
+Tradeoff:
+
+- writes are serialized, so throughput under heavy concurrent write load is lower
+- for this project, that tradeoff is acceptable in exchange for correctness
 
 Example:
 
@@ -197,8 +284,6 @@ Example:
 5. Request B continues, performs the overlap check again, detects the newly created appointment, and fails with a conflict error.
 
 As a result, overlapping appointments cannot be created even when multiple requests are submitted concurrently.
-
-This approach provides application-level concurrency protection without requiring database-specific exclusion constraints, while remaining simple and reliable for a SQLite-based solution.
 
 ## Test
 
