@@ -1,11 +1,13 @@
 import { Router } from "express";
 import {
   createAppointmentHandler,
+  deleteAppointmentHandler,
   listClinicianAppointmentsHandler,
   listAllAppointmentsHandler,
 } from "../controllers/appointmentController";
 import {
   createAppointmentSchema,
+  appointmentIdParamsSchema,
   clinicianAppointmentsParamsSchema,
   appointmentQuerySchema,
   adminAppointmentsQuerySchema,
@@ -178,4 +180,46 @@ appointmentRouter.get(
   requireRole("admin"),
   validateRequest(adminAppointmentsQuerySchema, "query"),
   listAllAppointmentsHandler
+);
+
+/**
+ * @openapi
+ * /appointments/{id}:
+ *   delete:
+ *     summary: Soft delete an appointment
+ *     security:
+ *       - RoleHeader: []
+ *     tags:
+ *       - Appointments
+ *     parameters:
+ *       - in: header
+ *         name: x-user-role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [admin]
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *     responses:
+ *       204:
+ *         description: Appointment marked as deleted
+ *       400:
+ *         description: Invalid params
+ *       401:
+ *         description: Unauthenticated
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Appointment not found
+ */
+appointmentRouter.delete(
+  "/appointments/:id",
+  simulateAuth,
+  requireRole("admin"),
+  validateRequest(appointmentIdParamsSchema, "params"),
+  deleteAppointmentHandler
 );

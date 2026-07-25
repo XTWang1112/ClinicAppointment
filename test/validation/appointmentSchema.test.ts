@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adminAppointmentsQuerySchema,
+  appointmentIdParamsSchema,
   appointmentQuerySchema,
   clinicianAppointmentsParamsSchema,
   createAppointmentSchema,
@@ -173,6 +174,28 @@ describe("appointment schemas", () => {
     it("rejects non-positive id", () => {
       const result = clinicianAppointmentsParamsSchema.safeParse({
         id: "0",
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("appointmentIdParamsSchema", () => {
+    it("coerces id from string to number", () => {
+      const result = appointmentIdParamsSchema.safeParse({
+        id: "1",
+      });
+
+      expect(result.success).toBe(true);
+
+      if (result.success) {
+        expect(result.data.id).toBe(1);
+      }
+    });
+
+    it("rejects invalid id", () => {
+      const result = appointmentIdParamsSchema.safeParse({
+        id: "abc",
       });
 
       expect(result.success).toBe(false);

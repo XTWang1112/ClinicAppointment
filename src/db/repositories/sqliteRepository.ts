@@ -46,6 +46,21 @@ export const sqliteRepository: IRepository = {
     );
   },
 
+  markAppointmentDeleted(id: number): boolean {
+    const result = db
+      .prepare(
+        `
+          UPDATE appointments
+          SET is_deleted = 1
+          WHERE id = ?
+            AND is_deleted = 0
+        `
+      )
+      .run(id);
+
+    return result.changes > 0;
+  },
+
   createAppointmentSafely(params: {
     clinicianId: number;
     patientId: number;
@@ -59,6 +74,7 @@ export const sqliteRepository: IRepository = {
             SELECT 1
             FROM appointments
             WHERE (clinician_id = ? OR patient_id = ?)
+              AND is_deleted = 0
               AND ? < end_time
               AND ? > start_time
             LIMIT 1
@@ -130,7 +146,7 @@ function findAppointmentsWithFilters(options?: {
   let sql = `
     SELECT id, clinician_id, patient_id, start_time, end_time
     FROM appointments
-    WHERE 1 = 1
+    WHERE is_deleted = 0
   `;
 
   const params: Array<string | number> = [];

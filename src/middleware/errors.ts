@@ -49,3 +49,10 @@ export class AppointmentOverlapError extends AppError {
     this.name = "AppointmentOverlapError";
   }
 }
+
+export class AppointmentNotFoundError extends AppError {
+  constructor() {
+    super(404, "Appointment does not exist");
+    this.name = "AppointmentNotFoundError";
+  }
+}

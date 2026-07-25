@@ -4,8 +4,13 @@ import type {
   CreateAppointmentRequest,
   AppointmentQuery,
   AdminAppointmentsQuery,
+  AppointmentIdParams,
 } from "../validation/appointmentSchemas";
-import { ClinicianNotFoundError, PatientNotFoundError } from "../middleware/errors";
+import {
+  AppointmentNotFoundError,
+  ClinicianNotFoundError,
+  PatientNotFoundError,
+} from "../middleware/errors";
 import { buildAppointmentQueryOptions, toUtcIsoString } from "./appointmentQueryOptions";
 
 export function createAppointment(dto: CreateAppointmentRequest): Appointment {
@@ -48,4 +53,12 @@ export function listAllAppointments(query: AdminAppointmentsQuery): Appointment[
   });
 
   return repository.findAppointments(options);
+}
+
+export function deleteAppointment(params: AppointmentIdParams): void {
+  const deleted = repository.markAppointmentDeleted(params.id);
+
+  if (!deleted) {
+    throw new AppointmentNotFoundError();
+  }
 }

@@ -90,6 +90,13 @@ export const clinicianAppointmentsParamsSchema = z.object({
     .positive("Clinician ID must be positive"),
 });
 
+export const appointmentIdParamsSchema = z.object({
+  id: z.coerce
+    .number()
+    .int("Appointment ID must be an integer")
+    .positive("Appointment ID must be positive"),
+});
+
 export const appointmentQuerySchema = withValidDateRange({
   ...dateRangeQueryShape,
 });
@@ -106,6 +113,7 @@ export const adminAppointmentsQuerySchema = withValidDateRange({
 });
 
 export type AdminAppointmentsQuery = z.infer<typeof adminAppointmentsQuerySchema>;
+export type AppointmentIdParams = z.infer<typeof appointmentIdParamsSchema>;
 export type ClinicianAppointmentsParams = z.infer<typeof clinicianAppointmentsParamsSchema>;
 export type AppointmentQuery = z.infer<typeof appointmentQuerySchema>;
 export type CreateAppointmentRequest = z.infer<typeof createAppointmentSchema>;

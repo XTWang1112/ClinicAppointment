@@ -5,6 +5,8 @@ export interface IRepository {
 
   patientExists(id: number): boolean;
 
+  markAppointmentDeleted(id: number): boolean;
+
   createAppointmentSafely(params: {
     clinicianId: number;
     patientId: number;

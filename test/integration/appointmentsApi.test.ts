@@ -344,6 +344,69 @@ describe("Appointments API integration tests", () => {
     });
   });
 
+  describe("DELETE /appointments/:id", () => {
+    it("marks an appointment as deleted", async () => {
+      const created = await request(app).post("/appointments").set("x-user-role", "admin").send({
+        clinicianId: 1,
+        patientId: 1,
+        start: "2099-06-10T09:00:00+10:00",
+        end: "2099-06-10T09:30:00+10:00",
+      });
+
+      const deleteResponse = await request(app)
+        .delete(`/appointments/${created.body.id}`)
+        .set("x-user-role", "admin");
+
+      expect(deleteResponse.status).toBe(204);
+
+      const listResponse = await request(app).get("/appointments").set("x-user-role", "admin");
+
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toHaveLength(0);
+    });
+
+    it("allows a new overlapping appointment after soft delete", async () => {
+      const created = await request(app).post("/appointments").set("x-user-role", "admin").send({
+        clinicianId: 1,
+        patientId: 1,
+        start: "2099-06-10T09:00:00+10:00",
+        end: "2099-06-10T09:30:00+10:00",
+      });
+
+      await request(app).delete(`/appointments/${created.body.id}`).set("x-user-role", "admin");
+
+      const response = await request(app).post("/appointments").set("x-user-role", "admin").send({
+        clinicianId: 1,
+        patientId: 2,
+        start: "2099-06-10T09:15:00+10:00",
+        end: "2099-06-10T09:45:00+10:00",
+      });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("returns 404 when appointment does not exist", async () => {
+      const response = await request(app).delete("/appointments/999").set("x-user-role", "admin");
+
+      expect(response.status).toBe(404);
+    });
+
+    it("returns 403 when non-admin tries to delete an appointment", async () => {
+      const created = await request(app).post("/appointments").set("x-user-role", "admin").send({
+        clinicianId: 1,
+        patientId: 1,
+        start: "2099-06-10T09:00:00+10:00",
+        end: "2099-06-10T09:30:00+10:00",
+      });
+
+      const response = await request(app)
+        .delete(`/appointments/${created.body.id}`)
+        .set("x-user-role", "patient");
+
+      expect(response.status).toBe(403);
+    });
+  });
+
   describe("not found", () => {
     it("returns 404 for unknown route", async () => {
       const response = await request(app).get("/unknown-route").set("x-user-role", "admin");

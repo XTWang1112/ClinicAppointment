@@ -4,9 +4,11 @@ import type {
   ClinicianAppointmentsParams,
   AppointmentQuery,
   AdminAppointmentsQuery,
+  AppointmentIdParams,
 } from "../validation/appointmentSchemas";
 import {
   createAppointment,
+  deleteAppointment,
   listClinicianAppointments,
   listAllAppointments,
 } from "../service/appointmentService";
@@ -46,6 +48,18 @@ export function listAllAppointmentsHandler(req: Request, res: Response, next: Ne
     const appointments = listAllAppointments(query);
 
     res.status(200).json(appointments);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function deleteAppointmentHandler(req: Request, res: Response, next: NextFunction): void {
+  try {
+    const params = res.locals.params as AppointmentIdParams;
+
+    deleteAppointment(params);
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

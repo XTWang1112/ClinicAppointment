@@ -3,18 +3,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
   createAppointmentHandler,
+  deleteAppointmentHandler,
   listClinicianAppointmentsHandler,
   listAllAppointmentsHandler,
 } from "../../src/controllers/appointmentController";
 
 import {
   createAppointment,
+  deleteAppointment,
   listClinicianAppointments,
   listAllAppointments,
 } from "../../src/service/appointmentService";
 
 vi.mock("../../src/service/appointmentService", () => ({
   createAppointment: vi.fn(),
+  deleteAppointment: vi.fn(),
   listClinicianAppointments: vi.fn(),
   listAllAppointments: vi.fn(),
 }));
@@ -23,6 +26,7 @@ function createMockResponse(): Response {
   return {
     locals: {},
     status: vi.fn().mockReturnThis(),
+    send: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
   } as unknown as Response;
 }
@@ -182,6 +186,37 @@ describe("appointment controller", () => {
       expect(next).toHaveBeenCalledWith(error);
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("deleteAppointmentHandler", () => {
+    it("returns 204 when appointment is deleted", () => {
+      const params = { id: 1 };
+
+      res.locals.params = params;
+
+      deleteAppointmentHandler(req, res, next);
+
+      expect(deleteAppointment).toHaveBeenCalledWith(params);
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.send).toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("passes errors to next", () => {
+      const error = new Error("Appointment does not exist");
+
+      res.locals.params = { id: 999 };
+
+      vi.mocked(deleteAppointment).mockImplementation(() => {
+        throw error;
+      });
+
+      deleteAppointmentHandler(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.send).not.toHaveBeenCalled();
     });
   });
 });

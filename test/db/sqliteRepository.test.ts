@@ -71,6 +71,43 @@ describe("sqliteRepository", () => {
         })
       ).toThrow(AppointmentOverlapError);
     });
+
+    it("ignores deleted appointments when checking overlaps", () => {
+      const appointment = sqliteRepository.createAppointmentSafely({
+        clinicianId: 1,
+        patientId: 1,
+        startTime: "2099-06-10T09:00:00.000Z",
+        endTime: "2099-06-10T09:30:00.000Z",
+      });
+
+      expect(sqliteRepository.markAppointmentDeleted(appointment.id)).toBe(true);
+
+      expect(() =>
+        sqliteRepository.createAppointmentSafely({
+          clinicianId: 1,
+          patientId: 2,
+          startTime: "2099-06-10T09:15:00.000Z",
+          endTime: "2099-06-10T09:45:00.000Z",
+        })
+      ).not.toThrow();
+    });
+  });
+
+  describe("markAppointmentDeleted", () => {
+    it("returns true when an appointment is marked deleted", () => {
+      const appointment = sqliteRepository.createAppointmentSafely({
+        clinicianId: 1,
+        patientId: 1,
+        startTime: "2099-06-10T09:00:00.000Z",
+        endTime: "2099-06-10T09:30:00.000Z",
+      });
+
+      expect(sqliteRepository.markAppointmentDeleted(appointment.id)).toBe(true);
+    });
+
+    it("returns false when the appointment does not exist", () => {
+      expect(sqliteRepository.markAppointmentDeleted(999)).toBe(false);
+    });
   });
 
   describe("findAppointmentsByClinician", () => {
@@ -99,6 +136,24 @@ describe("sqliteRepository", () => {
         clinicianId: 1,
         patientId: 1,
       });
+    });
+
+    it("does not return deleted appointments", () => {
+      const appointment = sqliteRepository.createAppointmentSafely({
+        clinicianId: 1,
+        patientId: 1,
+        startTime: "2099-06-10T09:00:00.000Z",
+        endTime: "2099-06-10T09:30:00.000Z",
+      });
+
+      sqliteRepository.markAppointmentDeleted(appointment.id);
+
+      const result = sqliteRepository.findAppointmentsByClinician(1, {
+        from: "2099-06-10T08:00:00.000Z",
+        to: "2099-06-10T10:00:00.000Z",
+      });
+
+      expect(result).toHaveLength(0);
     });
   });
 
@@ -130,6 +185,24 @@ describe("sqliteRepository", () => {
         patientId: 2,
         startTime: "2099-06-10T09:00:00.000Z",
       });
+    });
+
+    it("does not return deleted appointments", () => {
+      const appointment = sqliteRepository.createAppointmentSafely({
+        clinicianId: 1,
+        patientId: 1,
+        startTime: "2099-06-10T09:00:00.000Z",
+        endTime: "2099-06-10T09:30:00.000Z",
+      });
+
+      sqliteRepository.markAppointmentDeleted(appointment.id);
+
+      const result = sqliteRepository.findAppointments({
+        from: "2099-06-10T08:00:00.000Z",
+        to: "2099-06-10T10:00:00.000Z",
+      });
+
+      expect(result).toHaveLength(0);
     });
   });
 });

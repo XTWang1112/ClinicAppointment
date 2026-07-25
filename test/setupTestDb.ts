@@ -14,12 +14,9 @@ export function resetTestDatabase(): void {
 export function closeTestDatabase(): void {
   db.exec(`
     DELETE FROM appointments;
-    DELETE FROM clinicians;
-    DELETE FROM patients;
-    DELETE FROM migrations;
 
     DELETE FROM sqlite_sequence
-    WHERE name IN ('appointments', 'clinicians', 'patients', 'migrations');
+    WHERE name IN ('appointments');
   `);
   db.close();
   console.log("Test database closed");
